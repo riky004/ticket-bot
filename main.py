@@ -3,10 +3,10 @@ from discord.ext import commands
 from discord.ui import View, Button, Modal, TextInput
 import asyncio
 
-TOKEN = "MTM1ODE1OTA0NzkyMDE5MzY3Nw.GP7j_3.gG-SVfBUaxANan3ELhKDiEgvLrvfJ7dLLBXoJ8"
-GUILD_ID = 1288284272733589616
-CATEGORY_ID = 1358161525919055913
-SUPPORT_ROLE_IDS = [1288287043318710295, 1288990089476833281]
+TOKEN = ""
+GUILD_ID = 1148785310860312676
+CATEGORY_ID = 1350199258019532882
+SUPPORT_ROLE_IDS = [1321084653397872661]
 
 user_ticket_map = {}  # Mappa utente -> canale
 channel_user_map = {}  # Mappa canale -> utente
@@ -24,6 +24,30 @@ async def on_ready():
     print(f"✅ {bot.user} è online.")
     synced = await bot.tree.sync()
     print(f"🔁 Slash commands sincronizzati: {len(synced)}")
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+
+    # DM da utente → canale
+    if isinstance(message.channel, discord.DMChannel):
+        if message.author.id in user_ticket_map:
+            channel = bot.get_channel(user_ticket_map[message.author.id])
+            if channel:
+                await channel.send(f"📩 **{message.author.name}**: {message.content}")
+        else:
+            await message.channel.send("❗ Non hai un ticket attivo. Premi il bottone nel server per aprirne uno.")
+    # Messaggio da supporto → utente via DM
+    elif message.channel.id in channel_user_map and any(role.id in SUPPORT_ROLE_IDS for role in message.author.roles):
+        user_id = channel_user_map[message.channel.id]
+        user = await bot.fetch_user(user_id)
+        try:
+            await user.send(f"🎧 **Supporto**: {message.content}")
+        except:
+            await message.channel.send("⚠️ Impossibile inviare DM all'utente.")
+
+    await bot.process_commands(message)
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -118,27 +142,5 @@ class ReasonModal(Modal, title="Chiudi con motivo"):
         except:
             pass
         await interaction.channel.delete()
-
-@bot.event
-async def on_message(message):
-    if message.author == bot.user:
-        return
-
-    # DM da utente → canale
-    if isinstance(message.channel, discord.DMChannel):
-        if message.author.id in user_ticket_map:
-            channel = bot.get_channel(user_ticket_map[message.author.id])
-            if channel:
-                await channel.send(f"📩 **{message.author.name}**: {message.content}")
-        else:
-            await message.channel.send("❗ Non hai un ticket attivo. Premi il bottone nel server per aprirne uno.")
-    # Messaggio da supporto → utente via DM
-    elif message.channel.id in channel_user_map and any(role.id in SUPPORT_ROLE_IDS for role in message.author.roles):
-        user_id = channel_user_map[message.channel.id]
-        user = await bot.fetch_user(user_id)
-        try:
-            await user.send(f"🎧 **Supporto**: {message.content}")
-        except:
-            await message.channel.send("⚠️ Impossibile inviare DM all'utente.")
 
 bot.run(TOKEN)
